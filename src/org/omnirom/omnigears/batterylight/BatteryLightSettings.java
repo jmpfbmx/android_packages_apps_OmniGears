@@ -41,6 +41,22 @@ import org.omnirom.omnigears.preference.SystemSettingSwitchPreference;
 import java.util.List;
 import java.util.ArrayList;
 
+import android.content.BroadcastReceiver;
+import org.omnirom.omnigears.utils.OmniBatteryStatus;
+import static android.content.Intent.ACTION_USER_UNLOCKED;
+import static android.os.BatteryManager.BATTERY_HEALTH_UNKNOWN;
+import static android.os.BatteryManager.BATTERY_STATUS_FULL;
+import static android.os.BatteryManager.BATTERY_STATUS_UNKNOWN;
+import static android.os.BatteryManager.EXTRA_HEALTH;
+import static android.os.BatteryManager.EXTRA_LEVEL;
+import static android.os.BatteryManager.EXTRA_MAX_CHARGING_CURRENT;
+import static android.os.BatteryManager.EXTRA_MAX_CHARGING_VOLTAGE;
+import static android.os.BatteryManager.EXTRA_PLUGGED;
+import static android.os.BatteryManager.EXTRA_STATUS;
+import android.os.BatteryManager;
+import android.content.Intent;
+import android.content.IntentFilter;
+
 public class BatteryLightSettings extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener, Indexable {
     private static final String TAG = "BatteryLightSettings";
@@ -65,7 +81,45 @@ public class BatteryLightSettings extends SettingsPreferenceFragment implements
     private static final int MENU_RESET = Menu.FIRST;
     private int mLowBatteryWarningLevel;
     private boolean mBatteryLightEnabled;
+    private int mSlowThreshold;
+    private int mFastThreshold;
+    
 
+ /*private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            if (DEBUG) Log.d(TAG, "received broadcast " + action);
+            if (Intent.ACTION_BATTERY_CHANGED.equals(action)) {
+                final int status = intent.getIntExtra(EXTRA_STATUS, BATTERY_STATUS_UNKNOWN);
+                final int plugged = intent.getIntExtra(EXTRA_PLUGGED, 0);
+                final int level = intent.getIntExtra(EXTRA_LEVEL, 0);
+                final int health = intent.getIntExtra(EXTRA_HEALTH, BATTERY_HEALTH_UNKNOWN);
+
+                final int maxChargingMicroAmp = intent.getIntExtra(EXTRA_MAX_CHARGING_CURRENT, -1);
+                int maxChargingMicroVolt = intent.getIntExtra(EXTRA_MAX_CHARGING_VOLTAGE, -1);
+                final int maxChargingMicroWatt;
+
+                if (maxChargingMicroVolt <= 0) {
+                    maxChargingMicroVolt = DEFAULT_CHARGING_VOLTAGE_MICRO_VOLT;
+                }
+                if (maxChargingMicroAmp > 0) {
+                    // Calculating muW = muA * muV / (10^6 mu^2 / mu); splitting up the divisor
+                    // to maintain precision equally on both factors.
+                    maxChargingMicroWatt = (maxChargingMicroAmp / 1000)
+                            * (maxChargingMicroVolt / 1000);
+                } else {
+                    maxChargingMicroWatt = -1;
+                }
+               final Message msg = mHandler.obtainMessage(
+                        MSG_BATTERY_UPDATE, new BatteryStatus(status, level, plugged, health,
+                                maxChargingMicroWatt));
+                //mHandler.sendMessage(msg);
+    }
+}
+};*/
+    
     @Override
     protected int getMetricsCategory() {
         return MetricsEvent.OMNI_SETTINGS;
@@ -96,7 +150,23 @@ public class BatteryLightSettings extends SettingsPreferenceFragment implements
 
         mOnlyFullPref = (SystemSettingSwitchPreference)prefSet.findPreference(BATTERY_LIGHT_ONLY_FULL_PREF);
         mOnlyFullPref.setOnPreferenceChangeListener(this);
-
+        mSlowThreshold = getResources().getInteger(R.integer.config_chargingSlowlyThreshold);
+        mFastThreshold = getResources().getInteger(R.integer.config_chargingFastThreshold);
+        
+        //IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        //Intent batteryStatus = BatteryManager.registerReceiver(null, ifilter);
+        Context context = this.getContext();
+        Intent batteryIntent = context.getApplicationContext().registerReceiver(null,
+                    new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int maxChargingMicroAmp = batteryIntent.getIntExtra(BatteryManager.EXTRA_MAX_CHARGING_CURRENT, -1);
+        System.out.println("maxChargingMicroAmp my "+maxChargingMicroAmp);
+        /*if (maxChargingMicroAmp > 0) {
+                    // Calculating muW = muA * muV / (10^6 mu^2 / mu); splitting up the divisor
+                    // to maintain precision equally on both factors.
+                    maxChargingMicroWatt = (maxChargingMicroAmp / 1000)
+                            * (maxChargingMicroVolt / 1000);*/
+						
+		
         // Does the Device support changing battery LED colors?
         if (getResources().getBoolean(com.android.internal.R.bool.config_multiColorBatteryLed)) {
             setHasOptionsMenu(true);
