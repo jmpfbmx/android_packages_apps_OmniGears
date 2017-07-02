@@ -36,6 +36,18 @@ import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
 
+import static android.os.BatteryManager.BATTERY_HEALTH_UNKNOWN;
+import static android.os.BatteryManager.BATTERY_STATUS_FULL;
+import static android.os.BatteryManager.BATTERY_STATUS_UNKNOWN;
+import static android.os.BatteryManager.EXTRA_HEALTH;
+import static android.os.BatteryManager.EXTRA_LEVEL;
+import static android.os.BatteryManager.EXTRA_MAX_CHARGING_CURRENT;
+import static android.os.BatteryManager.EXTRA_MAX_CHARGING_VOLTAGE;
+import static android.os.BatteryManager.EXTRA_PLUGGED;
+import static android.os.BatteryManager.EXTRA_STATUS;
+import android.os.BatteryManager;
+
+
 import org.omnirom.omnigears.preference.SystemSettingSwitchPreference;
 
 import java.util.List;
@@ -65,6 +77,13 @@ public class BatteryLightSettings extends SettingsPreferenceFragment implements
     private static final int MENU_RESET = Menu.FIRST;
     private int mLowBatteryWarningLevel;
     private boolean mBatteryLightEnabled;
+    
+    private int mChargingSpeed;
+    private int mChargingWattage;
+    private int mSlowThreshold;
+    private int mFastThreshold;
+    private static final int LOW_BATTERY_THRESHOLD = 20;
+    
 
     @Override
     protected int getMetricsCategory() {
@@ -96,6 +115,9 @@ public class BatteryLightSettings extends SettingsPreferenceFragment implements
 
         mOnlyFullPref = (SystemSettingSwitchPreference)prefSet.findPreference(BATTERY_LIGHT_ONLY_FULL_PREF);
         mOnlyFullPref.setOnPreferenceChangeListener(this);
+        
+        mSlowThreshold = getResources().getInteger(R.integer.config_chargingSlowlyThreshold);
+        mFastThreshold = getResources().getInteger(R.integer.config_chargingFastThreshold);
 
         // Does the Device support changing battery LED colors?
         if (getResources().getBoolean(com.android.internal.R.bool.config_multiColorBatteryLed)) {
@@ -285,4 +307,61 @@ public class BatteryLightSettings extends SettingsPreferenceFragment implements
                     return result;
                 }
             };
+
+
+    public static class BatteryStatus {
+        public static final int CHARGING_UNKNOWN = -1;
+        public static final int CHARGING_SLOWLY = 0;
+        public static final int CHARGING_REGULAR = 1;
+        public static final int CHARGING_FAST = 2;
+
+        public final int status;
+        public final int level;
+        public final int plugged;
+        public final int health;
+        public final int maxChargingWattage;
+        public BatteryStatus(int status, int level, int plugged, int health,
+                int maxChargingWattage) {
+            this.status = status;
+            this.level = level;
+            this.plugged = plugged;
+            this.health = health;
+            this.maxChargingWattage = maxChargingWattage;
+        }
+
+        /**
+         * Determine whether the device is plugged in (USB, power, or wireless).
+         * @return true if the device is plugged in.
+         */
+        public boolean isPluggedIn() {
+            return plugged == BatteryManager.BATTERY_PLUGGED_AC
+                    || plugged == BatteryManager.BATTERY_PLUGGED_USB
+                    || plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS;
+        }
+
+        /**
+         * Whether or not the device is charged. Note that some devices never return 100% for
+         * battery level, so this allows either battery level or status to determine if the
+         * battery is charged.
+         * @return true if the device is charged
+         */
+        public boolean isCharged() {
+            return status == BATTERY_STATUS_FULL || level >= 100;
+        }
+
+        /**
+         * Whether battery is low and needs to be charged.
+         * @return true if battery is low
+         */
+        public boolean isBatteryLow() {
+            return level < LOW_BATTERY_THRESHOLD;
+        }
+
+        public final int getChargingSpeed(int slowThreshold, int fastThreshold) {
+            return maxChargingWattage <= 0 ? CHARGING_UNKNOWN :
+                    maxChargingWattage < slowThreshold ? CHARGING_SLOWLY :
+                    maxChargingWattage > fastThreshold ? CHARGING_FAST :
+                    CHARGING_REGULAR;
+        }
+    }
 }
